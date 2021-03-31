@@ -42,6 +42,27 @@ const ObjStoreDb = require('@mojaloop/central-object-store').Db
  * @module src/shared/setup
  */
 
+
+/**
+ * @function connectMongoose
+ * @description Connects to mongodb using `mojaloop/central-object-store` library
+ * @param {*} config - bulk-api-adapter config object
+ * @returns {Promise<null | mongoose>}
+ *   - If MONGODB_DISABLED === true, returns a promise that resolves to null,
+ *   - otherwise returns a promise that resolves to the mongoose instance
+ */
+const connectMongoose = async (config) => {
+  if (config.MONGODB_DISABLED === true) {
+    return null
+  }
+
+  try {
+    return ObjStoreDb.connect(config.MONGODB_URI, config.MONGODB_OPTIONS)
+  } catch (err) {
+    throw ErrorHandler.Factory.reformatFSPIOPError(err)
+  }
+}
+
 /**
  * @function createServer
  *
@@ -51,18 +72,6 @@ const ObjStoreDb = require('@mojaloop/central-object-store').Db
  * @param modules list of Modules to be registered
  * @returns {Promise<Server>} Returns the Server object
  */
-
-const connectMongoose = async () => {
-  try {
-    return ObjStoreDb.connect(Config.MONGODB_URI)
-  } catch (err) {
-    throw ErrorHandler.Factory.reformatFSPIOPError(err)
-    // TODO: review as code is being changed from returning null to returning a FSPIOPError
-    // Logger.error(`error - ${err}`)
-    // return null
-  }
-}
-
 const createServer = async (port, modules) => {
   const server = new Hapi.Server({
     port,
@@ -78,7 +87,7 @@ const createServer = async (port, modules) => {
       }
     }
   })
-  const db = await connectMongoose()
+  const db = await connectMongoose(Config)
   server.app.db = db
 
   await Plugins.registerPlugins(server)
@@ -189,5 +198,9 @@ const initialize = async function ({ service, port, modules = [], runHandlers = 
 
 module.exports = {
   initialize,
-  createServer
+  createServer,
+
+
+  // exported for testing purposes
+  _connectMongoose: connectMongoose,
 }
